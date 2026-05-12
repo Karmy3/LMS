@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->string('phone');
-            $table->integer('enrolled_at,');
+            $table->string('phone', 10);
+            $table->timestamp('enrolled_at')->useCurrent();
             $table->timestamps();
         });
     }
