@@ -9,6 +9,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\CourseAiController;
+use App\Http\Controllers\PaymentWebhookController;
 
 Route::prefix('v1')->group(function () {
     // --- PARTIE PUBLIQUE (Auth ? Non) --- 
@@ -18,6 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::get('courses/{id}', [CourseController::class, 'show']);
     Route::get('/courses/{id}/description', [CourseAiController::class, 'showDescription']);
     Route::get('instructors', [InstructorController::class, 'index']);
+    Route::post('/webhooks/payment', [PaymentWebhookController::class, 'handle']);
 
 
     // --- PARTIE PROTÉGÉE (Auth ? Oui) ---
