@@ -8,6 +8,7 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\CourseAiController;
 
 Route::prefix('v1')->group(function () {
     // --- PARTIE PUBLIQUE (Auth ? Non) --- 
@@ -15,6 +16,7 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login']);
     Route::get('courses', [CourseController::class, 'index']);
     Route::get('courses/{id}', [CourseController::class, 'show']);
+    Route::get('/courses/{id}/description', [CourseAiController::class, 'showDescription']);
     Route::get('instructors', [InstructorController::class, 'index']);
 
 
@@ -31,6 +33,7 @@ Route::prefix('v1')->group(function () {
         Route::post('courses', [CourseController::class, 'store']);
         Route::put('courses/{id}', [CourseController::class, 'update']);
         Route::delete('courses/{id}', [CourseController::class, 'destroy']);
+        Route::post('/courses/{id}/generate-description', [CourseAiController::class, 'generate']);
 
         Route::post('instructors', [InstructorController::class, 'store']);
         Route::put('instructors/{id}', [InstructorController::class, 'update']);
