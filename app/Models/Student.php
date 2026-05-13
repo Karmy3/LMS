@@ -12,4 +12,9 @@ class Student extends Model
         'phone',
         'enrolled_at'
     ];
+
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
 }

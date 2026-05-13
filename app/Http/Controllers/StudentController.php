@@ -7,85 +7,112 @@ use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
-    public function index(){
-        try{
-            $students = Student::all();
-            if($students->isEmpty()){
+    public function index(Request $request)
+    {
+        try {
+            $query = Student::query();
+
+            if ($request->name) {
+                $query->where('name', 'like', '%' . $request->name . '%');
+            }
+
+            $students = $query->paginate($request->get('per_page', 15));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Liste des étudiants récupérée avec succès',
+                'data' => $students->items(),
+                'meta' => [
+                    'total' => $students->total(),
+                    'current_page' => $students->currentPage(),
+                    'last_page' => $students->lastPage(),
+                    'per_page' => $students->perPage()
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur interne est survenue',
+                'data' => null,
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $student = Student::with('enrollments')->find($id);
+
+            if (!$student) {
                 return response()->json([
                     'success' => false,
-                    'message' => ' Aucun étudiant trouvé dans la base de données ',
+                    'message' => 'Étudiant non trouvé',
                     'data' => null
                 ], 404);
             }
+
             return response()->json([
                 'success' => true,
-                'message' => "Listes des étudiants",
-                'data' =>  $students
-            ],200);
-        }catch(\Exception $e){
-            return response()->json([
-                'success' => false,
-                'message' => 'Une erreur interne est survenue',
-                'data' => null,
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-    public function show($id){
-        try{
-            $student = Student::find($id);
-            if (!$student){
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Etudiant non trouvé ',
-                    'data' => null
-                ],404);
-            }   
-            return response()->json([
-                'success' => true,
-                 'message' => 'Détails de l\'étudiant récupérés avec succès',
-                 'data' => $student
+                'message' => 'Détails de l\'étudiant récupérés avec succès',
+                'data' => $student
             ], 200);
-        }catch(\Exception $e){
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function store(Request $request){
-        try{  
+
+    public function store(Request $request)
+    {
+        try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'email'=> 'required|email|unique:students',
+                'email' => 'required|email|unique:students',
                 'phone' => 'required|digits:10',
                 'enrolled_at' => 'nullable|date'
             ]);
+
             $student = Student::create($validated);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Etudiant crée avec succès !',
+                'message' => 'Étudiant créé avec succès',
                 'data' => $student
-            ], 201); 
-        }catch(\Exception $e){
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'data' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function update(Request $request , $id){
-        try{  
+
+    public function update(Request $request, $id)
+    {
+        try {
             $student = Student::find($id);
 
-            if(!$student){
+            if (!$student) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Inexistant',
+                    'message' => 'Étudiant introuvable',
                     'data' => null
                 ], 404);
             }
@@ -94,53 +121,57 @@ class StudentController extends Controller
                 'name' => 'sometimes|string|max:255',
                 'email' => 'sometimes|email|unique:students,email,' . $id,
                 'phone' => 'sometimes|digits:10',
+                'enrolled_at' => 'sometimes|nullable|date'
             ]);
 
             $student->update($validated);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Etudiant mise à jour avec succès !',
+                'message' => 'Étudiant mis à jour avec succès',
                 'data' => $student
             ], 200);
 
-        }catch(\Exception $e){
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'data' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function destroy($id){
-        try{
 
+    public function destroy($id)
+    {
+        try {
             $student = Student::find($id);
 
-            if(!$student){
+            if (!$student) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Etudiant introuvable',
+                    'message' => 'Étudiant introuvable',
                     'data' => null
                 ], 404);
             }
 
             $student->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Etudiant supprimé avec succès',
-                'data' => $student,
-            ], 200);
+            return response()->json(null, 204);
 
-        }catch(\Exception $e){
-
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
 
         }

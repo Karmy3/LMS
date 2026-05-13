@@ -7,139 +7,175 @@ use Illuminate\Http\Request;
 
 class EnrollmentController extends Controller
 {
-    public function index(){
-        try{
-            $enrollements = Enrollment::all();
-            if($enrollements->isEmpty()){
+    public function index(Request $request)
+    {
+        try {
+            $query = Enrollment::with(['student', 'course']);
+
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->has('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
+            }
+
+            $enrollments = $query->get();
+
+            if ($enrollments->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => ' Aucun inscription trouvé dans la base de données ',
+                    'message' => 'Aucune inscription trouvée',
                     'data' => null
                 ], 404);
             }
+
             return response()->json([
                 'success' => true,
-                'message' => "Liste de toutes les inscriptions",
-                'data' => $enrollements
-            ]);
-        }catch(\Exception $e){
+                'message' => 'Liste des inscriptions récupérée avec succès',
+                'data' => $enrollments
+            ], 200);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function show($id){
-        try{
-            $enrollement = Enrollment::find($id);
-            if (!$enrollement){
+
+    public function show($id)
+    {
+        try {
+            $enrollment = Enrollment::find($id);
+
+            if (!$enrollment) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Inscription non trouvé ',
+                    'message' => 'Inscription non trouvée',
                     'data' => null
-                ],404);
-            }   
+                ], 404);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => "Détails de l\'étudiant récupérés avec succès",
-                'data' => $enrollement
-            ]); 
-        }catch(\Exception $e){
+                'message' => 'Détails de l\'inscription récupérés avec succès',
+                'data' => $enrollment
+            ], 200);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function store(Request $request){
-        try{  
+
+    public function store(Request $request)
+    {
+        try {
             $validated = $request->validate([
                 'student_id' => 'required|exists:students,id',
                 'course_id' => 'required|exists:courses,id',
-                'status'=> 'required|in:pending,active,completed',
+                'status' => 'required|in:pending,active,completed',
                 'payment_status' => 'required|in:unpaid,paid'
             ]);
-            $enrollement = Enrollment::create($validated);
+
+            $enrollment = Enrollment::create($validated);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Inscription crée avec succès !',
-                'data' => $enrollement
-            ], 201); 
-        }catch(\Exception $e){
+                'message' => 'Inscription créée avec succès',
+                'data' => $enrollment
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'data' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function update(Request $request , $id){
-        try{  
-            $enrollement = Enrollment::find($id);
 
-            if(!$enrollement){
+    public function update(Request $request, $id)
+    {
+        try {
+            $enrollment = Enrollment::find($id);
+
+            if (!$enrollment) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Inexistant',
+                    'message' => 'Inscription introuvable',
                     'data' => null
                 ], 404);
             }
 
             $validated = $request->validate([
-                 'status'=> 'sometimes|in:pending,active,completed',
-                 'payment_status' => 'sometimes|in:unpaid,paid'
+                'status' => 'sometimes|in:pending,active,completed',
+                'payment_status' => 'sometimes|in:unpaid,paid'
             ]);
 
-            $enrollement->update($validated);
+            $enrollment->update($validated);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Inscription mise à jour avec succès !',
-                'data' => $enrollement
+                'message' => 'Inscription mise à jour avec succès',
+                'data' => $enrollment
             ], 200);
 
-        }catch(\Exception $e){
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'data' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
-    public function destroy($id){
-        try{
 
-            $enrollement = Enrollment::find($id);
+    public function destroy($id)
+    {
+        try {
+            $enrollment = Enrollment::find($id);
 
-            if(!$enrollement){
+            if (!$enrollment) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Inscription introuvable',
-                    'data' => null,
+                    'data' => null
                 ], 404);
             }
 
-            $enrollement->delete();
+            $enrollment->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Inscription supprimé avec succès',
-                'data' => $enrollement
-            ], 200);
+            return response()->json(null, 204);
 
-        }catch(\Exception $e){
-
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur interne est survenue',
                 'data' => null,
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
 
         }

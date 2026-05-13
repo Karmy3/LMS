@@ -13,4 +13,14 @@ class Course extends Model
         'duration_hours',
         'instructor_id'
     ];
+
+    public function instructor()
+    {
+        return $this->belongsTo(Instructor::class);
+    }
+
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
 }
