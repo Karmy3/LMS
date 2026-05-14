@@ -1,0 +1,290 @@
+openapi: 3.0.0
+info:
+  title: API LMS - Plateforme de gestion d'école
+  description: "Examen Mi-Semestre L3 Informatique - Système complet de gestion scolaire."
+  version: 1.0.0
+  contact:
+    email: admin@ecole.com
+
+servers:
+  - url: http://localhost:8000
+    description: Serveur Local de Développement
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Student:
+      type: object
+      required: [name, email]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Jean Dupont"
+        email:
+          type: string
+          format: email
+          example: "jean@exemple.com"
+        phone:
+          type: string
+          example: "0340000000"
+        enrolled_at:
+          type: string
+          example: "2026-05-14 10:30:00"
+          description: "Format requis : YYYY-MM-DD HH:MM:SS"
+    Course:
+      type: object
+      required: [title, instructor_id]
+      properties:
+        id: { type: integer, example: 1 }
+        title: { type: string, example: "Laravel Avancé" }
+        description: { type: string, example: "Maîtriser les APIs REST" }
+        price: { type: number, example: 50000 }
+        duration_hours: { type: integer, example: 20 }
+        instructor_id: { type: integer, example: 1 }
+    Instructor:
+      type: object
+      required: [name, email, specialty]
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "Dr. Rindra" }
+        email: { type: string, format: email, example: "rindra@ecole.mg" }
+        specialty: { type: string, example: "Intelligence Artificielle" }
+    Enrollment:
+      type: object
+      properties:
+        id: { type: integer, example: 10 }
+        student_id: { type: integer, example: 1 }
+        course_id: { type: integer, example: 5 }
+        status: { type: string, enum: [pending, active, completed], example: "active" }
+        payment_status: { type: string, enum: [unpaid, paid], example: "paid" }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: "Erreur détectée" }
+
+paths:
+  # --- AUTHENTICATION ---
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Connexion utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: "test@example.com" }
+                password: { type: string, example: "password" }
+      responses:
+        200: { description: Token JWT retourné }
+
+  # --- STUDENTS ---
+  /api/v1/students:
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Students]
+      summary: Liste des étudiants
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        200: { description: OK }
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [Students]
+      summary: Créer un étudiant
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Student' }
+      responses:
+        201: { description: Créé }
+  /api/v1/students/{id}:
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Students]
+      summary: Détail étudiant + enrollments
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        200: { description: OK }
+    put:
+      security: [{ bearerAuth: [] }]
+      tags: [Students]
+      summary: Modifier un étudiant
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Student' }
+      responses:
+        200: { description: OK }
+    delete:
+      security: [{ bearerAuth: [] }]
+      tags: [Students]
+      summary: Supprimer un étudiant
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        204: { description: Supprimé }
+
+  # --- COURSES ---
+  /api/v1/courses:
+    get:
+      tags: [Courses]
+      summary: Liste des cours
+      parameters:
+        - name: instructor_id
+          in: query
+          schema: { type: integer }
+        - name: sort
+          in: query
+          schema: { type: string, example: "price" }
+      responses:
+        200: { description: OK }
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [Courses]
+      summary: Créer un cours
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Course' }
+      responses:
+        201: { description: Créé }
+  /api/v1/courses/{id}:
+    get:
+      tags: [Courses]
+      summary: Détail cours + instructor
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        200: { description: OK }
+    put:
+      security: [{ bearerAuth: [] }]
+      tags: [Courses]
+      summary: Modifier un cours
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Course' }
+      responses:
+        200: { description: OK }
+    delete:
+      security: [{ bearerAuth: [] }]
+      tags: [Courses]
+      summary: Supprimer un cours
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        204: { description: OK }
+
+  # --- AI (OPENAI) ---
+  /api/v1/courses/{id}/generate-description:
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [AI]
+      summary: Générer description via OpenAI
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        200: { description: OK }
+        503: { description: Service indisponible }
+  /api/v1/courses/{id}/description:
+    get:
+      tags: [AI]
+      summary: Voir la description générée
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        200: { description: OK }
+
+  # --- INSTRUCTORS ---
+  /api/v1/instructors:
+    get:
+      tags: [Instructors]
+      summary: Liste formateurs
+      responses:
+        200: { description: OK }
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [Instructors]
+      summary: Créer un formateur
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Instructor' }
+      responses:
+        201: { description: Créé }
+
+  # --- ENROLLMENTS ---
+  /api/v1/enrollments:
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Enrollments]
+      summary: Liste des inscriptions
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, active, completed] }
+        - name: payment_status
+          in: query
+          schema: { type: string, enum: [unpaid, paid] }
+      responses:
+        200: { description: OK }
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [Enrollments]
+      summary: Inscrire un étudiant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                student_id: { type: integer }
+                course_id: { type: integer }
+      responses:
+        201: { description: OK }
+  /api/v1/enrollments/{id}/complete:
+    patch:
+      security: [{ bearerAuth: [] }]
+      tags: [Enrollments]
+      summary: Marquer comme terminé
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        200: { description: OK }
+
+  # --- WEBHOOK ---
+  /api/v1/webhooks/payment:
+    post:
+      tags: [Webhooks]
+      summary: Webhook de paiement
+      parameters:
+        - name: X-Webhook-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, example: "payment.succeeded" }
+                data:
+                  type: object
+                  properties:
+                    enrollment_id: { type: integer, example: 3 }
+                    amount: { type: integer, example: 5000 }
+      responses:
+        200: { description: OK }

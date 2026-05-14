@@ -4,55 +4,121 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use OpenApi\Annotations as OA;
 
 class PaymentWebhookController extends Controller
 {
+    /**
+     * @OA\Post(
+     *     path="/api/v1/webhooks/payment",
+     *     summary="Webhook de confirmation de paiement",
+     *     tags={"Payments"},
+     *
+     *     @OA\Header(
+     *         header="X-Webhook-Signature",
+     *         description="Signature HMAC-SHA256",
+     *         @OA\Schema(type="string")
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             type="object",
+     *             required={"event","data"},
+     *             @OA\Property(
+     *                 property="event",
+     *                 type="string",
+     *                 example="payment.succeeded"
+     *             ),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="enrollment_id",
+     *                     type="integer",
+     *                     example=1
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Succès",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="OK"),
+     *             @OA\Property(property="received", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object"
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Signature invalide",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="data", type="null", example=null)
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Enrollment introuvable",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="data", type="null", example=null)
+     *         )
+     *     )
+     * )
+     */
     public function handle(Request $request)
     {
-        // 1. Récupérer la signature envoyée par Postman
         $signatureHeader = $request->header('X-Webhook-Signature');
 
-        // 2. Vérifier si la signature est présente
         if (!$signatureHeader) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Signature absente',
                 'data' => null
             ], 401);
         }
 
-        // 3. Calculer la signature locale pour comparer
         $secret = env('WEBHOOK_SECRET');
-        $payload = $request->getContent(); 
+        $payload = $request->getContent();
         $computedSignature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
-
-        // 4.Vérification de la signature
+    
         if (!hash_equals($computedSignature, $signatureHeader)) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Signature invalide',
                 'data' => null
             ], 401);
         }
 
-        // 5. Récupérer les données
         $data = $request->input('data');
         $event = $request->input('event');
 
         if ($event === 'payment.succeeded') {
-            // 6.Vérifier si l'id existe
+
             $enrollment = Enrollment::find($data['enrollment_id']);
 
             if (!$enrollment) {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'Enrollment introuvable',
                     'data' => null
                 ], 404);
             }
 
-            // 7.Mise à jour
             $enrollment->update([
                 'payment_status' => 'paid',
                 'status' => 'active'
@@ -60,6 +126,7 @@ class PaymentWebhookController extends Controller
 
             return response()->json([
                 'success' => true,
+                'message' => 'Paiement confirmé',
                 'received' => true,
                 'data' => $enrollment
             ], 200);
@@ -67,7 +134,8 @@ class PaymentWebhookController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Evenement ignoré'
+            'message' => 'Événement ignoré',
+            'received' => true
         ], 200);
     }
 }
