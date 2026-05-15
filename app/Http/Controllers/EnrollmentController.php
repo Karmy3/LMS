@@ -153,6 +153,22 @@ class EnrollmentController extends Controller
      *         description="Inscription réussie"
      *     ),
      *
+     *    @OA\Response(
+     *        response=409,
+     *        description="Conflit : Déjà inscrit",
+     *        @OA\JsonContent(
+     *            @OA\Property(
+     *                property="success", 
+     *                type="boolean", 
+     *                example=false
+     *            ),
+     *            @OA\Property(
+     *                property="message", 
+     *                type="string", 
+     *                example="Conflit : Cet étudiant est déjà inscrit à ce cours."
+     *            )
+     *        )
+     *     ),
      *     @OA\Response(
      *         response=422,
      *         description="Erreur validation"
@@ -161,20 +177,40 @@ class EnrollmentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'student_id' => 'required|exists:students,id',
-            'course_id' => 'required|exists:courses,id',
-            'status' => 'required|in:pending,active,completed',
-            'payment_status' => 'required|in:unpaid,paid'
-        ]);
+        try {
+            $validated = $request->validate([
+                'student_id' => 'required|exists:students,id',
+                'course_id' => 'required|exists:courses,id',
+                'status' => 'required|in:pending,active,completed',
+                'payment_status' => 'required|in:unpaid,paid'
+            ]);
 
-        $enrollment = Enrollment::create($validated);
+            $alreadyExists = Enrollment::where('student_id', $validated['student_id'])
+                ->where('course_id', $validated['course_id'])
+                ->exists();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Inscription créée avec succès',
-            'data' => $enrollment
-        ], 201);
+            if ($alreadyExists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Conflit : Cet étudiant est déjà inscrit à ce cours.',
+                ], 409); 
+            }
+
+            $enrollment = Enrollment::create($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inscription créée avec succès',
+                'data' => $enrollment
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Données invalides',
+                'errors' => $e->errors()
+            ], 422);
+        }
     }
 
     /**
@@ -206,27 +242,58 @@ class EnrollmentController extends Controller
      *         response=404,
      *         description="Non trouvé"
      *     )
+     *     @OA\Response(
+     *         response=422,
+     *         description="Erreur de validation",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                  property="success", 
+     *                  type="boolean",  
+     *                  example=false
+     *             ),
+     *             @OA\Property(
+     *                  property="errors", 
+     *                  type="object"
+     *             )
+     *         )
+     *     )
      * )
      */
     public function update(Request $request, $id)
     {
-        $enrollment = Enrollment::find($id);
+        try {
+            $enrollment = Enrollment::find($id);
 
-        if (!$enrollment) {
+            if (!$enrollment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Inscription introuvable',
+                    'data'    => null
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'student_id'     => 'sometimes|exists:students,id',
+                'course_id'      => 'sometimes|exists:courses,id',
+                'status'         => 'sometimes|in:pending,active,completed',
+                'payment_status' => 'sometimes|in:unpaid,paid'
+            ]);
+
+            $enrollment->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inscription mise à jour avec succès',
+                'data'    => $enrollment
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Inscription introuvable',
-                'data' => null
-            ], 404);
+                'message' => 'Erreur de validation',
+                'errors'  => $e->errors()
+            ], 422);
         }
-
-        $enrollment->update($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Inscription mise à jour avec succès',
-            'data' => $enrollment
-        ], 200);
     }
 
     /**

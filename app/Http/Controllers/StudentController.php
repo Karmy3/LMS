@@ -149,7 +149,10 @@ class StudentController extends Controller
      *         response=201,
      *         description="Créé"
      *     ),
-     *
+     *     @OA\Response(
+     *         response=409,
+     *         description="Conflit : Déjà inscrit"
+     *     ),
      *     @OA\Response(
      *         response=422,
      *         description="Erreur validation"
@@ -158,71 +161,112 @@ class StudentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:students',
-            'phone' => 'required|digits:10',
-            'enrolled_at' => 'nullable|date'
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:students',
+                'phone' => 'required|digits:10',
+                'enrolled_at' => 'nullable|date'
+            ]);
 
-        $student = Student::create($validated);
+            $student = Student::create($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Étudiant créé avec succès',
-            'data' => $student
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Étudiant créé avec succès',
+                'data' => $student
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        }
     }
 
     /**
      * @OA\Put(
-     *     path="/api/students/{id}",
-     *     tags={"Students"},
-     *     summary="Modifier un étudiant",
-     *     security={{"bearerAuth":{}}},
-     *
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(type="object")
-     *     ),
-     *
-     *     @OA\Response(
-     *         response=200,
-     *         description="Mis à jour"
-     *     ),
-     *
-     *     @OA\Response(
-     *         response=404,
-     *         description="Non trouvé"
-     *     )
+     *      path="/api/students/{id}",
+     *      tags={"Students"},
+     *      summary="Mettre à jour un étudiant",
+     *      security={{"bearerAuth":{}}},
+     *      @OA\Parameter(
+     *          name="id",
+     *          in="path",
+     *          required=true,
+     *          description="ID de l'étudiant",
+     *          @OA\Schema(type="integer")
+     *      ),
+     *      @OA\RequestBody(
+     *          @OA\JsonContent(
+     *              @OA\Property(property="name", type="string", example="Jean RKT"),
+     *              @OA\Property(property="email", type="string", example="jean.new@gmail.com"),
+     *              @OA\Property(property="phone", type="string", example="0340000000")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="Mise à jour réussie",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="success", type="boolean", example=true),
+     *              @OA\Property(property="message", type="string", example="Étudiant mis à jour avec succès")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=404,
+     *          description="Étudiant introuvable",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="success", type="boolean", example=false),
+     *              @OA\Property(property="message", type="string", example="Étudiant introuvable")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=422,
+     *          description="Erreur de validation (Email déjà pris, format téléphone incorrect...)",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="success", type="boolean", example=false),
+     *              @OA\Property(property="errors", type="object")
+     *          )
+     *      )
      * )
      */
     public function update(Request $request, $id)
     {
-        $student = Student::find($id);
+        try {
+            $student = Student::find($id);
 
-        if (!$student) {
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Étudiant introuvable',
+                    'data' => null
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:students,email,' . $id, 
+                'phone' => 'sometimes|digits:10',
+                'enrolled_at' => 'sometimes|nullable|date'
+            ]);
+
+            $student->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Étudiant mis à jour avec succès',
+                'data' => $student
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Étudiant introuvable',
-                'data' => null
-            ], 404);
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
         }
-
-        $student->update($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Étudiant mis à jour avec succès',
-            'data' => $student
-        ], 200);
     }
 
     /**
