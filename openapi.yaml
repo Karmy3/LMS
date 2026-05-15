@@ -251,8 +251,22 @@ paths:
             schema:
               type: object
               properties:
-                student_id: { type: integer }
-                course_id: { type: integer }
+                student_id:
+                  type: integer
+                  example: 1
+                course_id:
+                  type: integer
+                  example: 1
+                status:
+                  type: string
+                  enum: [pending, active, completed]
+                  default: pending
+                  example: pending
+                payment_status:
+                  type: string
+                  enum: [unpaid, paid]
+                  default: unpaid
+                  example: unpaid
       responses:
         201: { description: OK }
   /api/v1/enrollments/{id}/complete:
